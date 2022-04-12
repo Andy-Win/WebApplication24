@@ -1,0 +1,54 @@
+name: Build and deploy .NET application to container app webapplication24-app-20220412055
+on:
+  push:
+    branches:
+    - master
+env:
+  CONTAINER_APP_CONTAINER_NAME: webapplication24
+  CONTAINER_APP_NAME: webapplication24-app-20220412055
+  CONTAINER_APP_RESOURCE_GROUP_NAME: Aca12LinuxGroup
+  CONTAINER_REGISTRY_LOGIN_SERVER: webapplication2420220412055814.azurecr.io
+  DOCKER_FILE_PATH: WebApplication24/Dockerfile
+  PROJECT_NAME_FOR_DOCKER: webapplication24
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout to the branch
+      uses: actions/checkout@v2
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+    - name: Log in to container registry
+      uses: docker/login-action@v1
+      with:
+        registry: ${{ env.CONTAINER_REGISTRY_LOGIN_SERVER }}
+        username: ${{ secrets.WebApplication2420220412055814_USERNAME_FFFF }}
+        password: ${{ secrets.WebApplication2420220412055814_PASSWORD_FFFF }}
+    - name: Build and push container image to registry
+      uses: docker/build-push-action@v2
+      with:
+        push: true
+        tags: ${{ env.CONTAINER_REGISTRY_LOGIN_SERVER }}/${{ env.PROJECT_NAME_FOR_DOCKER }}:${{ github.sha }}
+        file: ${{ env.DOCKER_FILE_PATH }}
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.webapplication24_app_20220412055_SPN }}
+    - name: Deploy to containerapp
+      uses: azure/CLI@v1
+      with:
+        inlineScript: >
+          echo "Installing containerapp extension"
+
+          az extension add --name containerapp --yes
+
+          echo "Starting Deploying"
+
+          az containerapp update --name ${{ env.CONTAINER_APP_NAME }} --resource-group ${{ env.CONTAINER_APP_RESOURCE_GROUP_NAME }} -i ${{ env.CONTAINER_REGISTRY_LOGIN_SERVER }}/${{ env.PROJECT_NAME_FOR_DOCKER }}:${{ github.sha }} --debug
+    - name: logout
+      run: >
+        az logout
